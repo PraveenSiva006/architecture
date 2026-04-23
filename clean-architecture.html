@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clean Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --entities: #e8c547;
+    --usecases: #e87d3e;
+    --adapters: #5b9cf6;
+    --infra: #7c6f9f;
+    --rule-color: #ff4d6d;
+    --text: #f0ece4;
+    --muted: #7a7585;
+    --border: rgba(255,255,255,0.06);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    overflow-x: hidden;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.6;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+    animation: fadeDown 0.8s ease both;
+  }
+
+  header .label {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--rule-color);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  header h1 {
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  header p {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 400;
+    max-width: 420px;
+    margin-inline: auto;
+    line-height: 1.6;
+  }
+
+  /* ── CONCENTRIC RINGS ── */
+  .rings-wrapper {
+    position: relative;
+    width: min(580px, 90vw);
+    aspect-ratio: 1;
+    animation: fadeIn 1s ease 0.2s both;
+  }
+
+  .ring {
+    position: absolute;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.35s ease, filter 0.35s ease;
+    cursor: default;
+  }
+
+  .ring:hover { transform: scale(1.015); filter: brightness(1.12); }
+
+  /* ring 4 — outermost: Infrastructure */
+  .ring-4 {
+    inset: 0;
+    background: radial-gradient(ellipse at 30% 30%, #2a1f3d, #130f22);
+    border: 1.5px solid rgba(124,111,159,0.35);
+    box-shadow: 0 0 60px rgba(124,111,159,0.12), inset 0 0 60px rgba(0,0,0,0.4);
+  }
+
+  /* ring 3 — Interface Adapters */
+  .ring-3 {
+    inset: 12%;
+    background: radial-gradient(ellipse at 35% 30%, #132240, #0d1a30);
+    border: 1.5px solid rgba(91,156,246,0.3);
+    box-shadow: 0 0 40px rgba(91,156,246,0.1), inset 0 0 40px rgba(0,0,0,0.3);
+  }
+
+  /* ring 2 — Use Cases */
+  .ring-2 {
+    inset: 27%;
+    background: radial-gradient(ellipse at 40% 35%, #2a1800, #1a1000);
+    border: 1.5px solid rgba(232,125,62,0.35);
+    box-shadow: 0 0 30px rgba(232,125,62,0.12), inset 0 0 30px rgba(0,0,0,0.3);
+  }
+
+  /* ring 1 — Entities (innermost) */
+  .ring-1 {
+    inset: 43%;
+    background: radial-gradient(ellipse at 40% 35%, #2e2200, #1c1500);
+    border: 1.5px solid rgba(232,197,71,0.5);
+    box-shadow: 0 0 24px rgba(232,197,71,0.2), 0 0 60px rgba(232,197,71,0.06), inset 0 0 20px rgba(0,0,0,0.2);
+  }
+
+  /* Ring label inside */
+  .ring-label {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .ring-label .name {
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    line-height: 1.1;
+  }
+
+  .ring-label .sub {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    opacity: 0.6;
+    margin-top: 3px;
+  }
+
+  .ring-1 .ring-label .name { font-size: clamp(9px,2vw,14px); color: var(--entities); }
+  .ring-2 .ring-label .name { font-size: clamp(8px,1.6vw,12px); color: var(--usecases); }
+
+  /* Satellite labels around outside rings */
+  .satellite {
+    position: absolute;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(7px, 1.4vw, 10px);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* Adapters satellites — positioned on ring-3 edges */
+  .ring-3 .sat-top    { top: 6%; left: 50%; transform: translateX(-50%); color: var(--adapters); }
+  .ring-3 .sat-bottom { bottom: 6%; left: 50%; transform: translateX(-50%); color: var(--adapters); }
+  .ring-3 .sat-left   { left: 4%; top: 50%; transform: translateY(-50%); color: var(--adapters); }
+  .ring-3 .sat-right  { right: 4%; top: 50%; transform: translateY(-50%); color: var(--adapters); }
+
+  /* Infra satellites — positioned on ring-4 edges */
+  .ring-4 .sat-top    { top: 4%; left: 50%; transform: translateX(-50%); color: var(--infra); }
+  .ring-4 .sat-bottom { bottom: 4%; left: 50%; transform: translateX(-50%); color: var(--infra); }
+  .ring-4 .sat-left   { left: 2.5%; top: 50%; transform: translateY(-50%); color: var(--infra); }
+  .ring-4 .sat-right  { right: 2.5%; top: 50%; transform: translateY(-50%); color: var(--infra); }
+
+  /* ── DEPENDENCY ARROW ── */
+  .arrow-wrapper {
+    margin: 36px 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    animation: fadeIn 1s ease 0.5s both;
+  }
+
+  .arrow-rule {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,77,109,0.07);
+    border: 1px solid rgba(255,77,109,0.2);
+    border-radius: 100px;
+    padding: 8px 18px 8px 14px;
+  }
+
+  .arrow-rule svg { flex-shrink: 0; }
+
+  .arrow-rule span {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--rule-color);
+    letter-spacing: 0.08em;
+  }
+
+  /* ── LAYERS TABLE ── */
+  .layers {
+    width: min(640px, 92vw);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 36px;
+    animation: fadeUp 0.8s ease 0.6s both;
+  }
+
+  .layer-card {
+    border-radius: 12px;
+    padding: 18px 20px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.025);
+    transition: background 0.25s, border-color 0.25s, transform 0.25s;
+    cursor: default;
+  }
+
+  .layer-card:hover {
+    background: rgba(255,255,255,0.05);
+    transform: translateY(-2px);
+  }
+
+  .layer-card:nth-child(1) { border-color: rgba(232,197,71,0.25); }
+  .layer-card:nth-child(1):hover { border-color: rgba(232,197,71,0.5); }
+  .layer-card:nth-child(2) { border-color: rgba(232,125,62,0.25); }
+  .layer-card:nth-child(2):hover { border-color: rgba(232,125,62,0.5); }
+  .layer-card:nth-child(3) { border-color: rgba(91,156,246,0.25); }
+  .layer-card:nth-child(3):hover { border-color: rgba(91,156,246,0.5); }
+  .layer-card:nth-child(4) { border-color: rgba(124,111,159,0.25); }
+  .layer-card:nth-child(4):hover { border-color: rgba(124,111,159,0.5); }
+
+  .layer-card .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    display: inline-block; margin-right: 8px; vertical-align: middle;
+  }
+
+  .layer-card h3 {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+  }
+
+  .layer-card p {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.65;
+    font-weight: 400;
+  }
+
+  .layer-card .examples {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    padding: 3px 8px;
+    border-radius: 100px;
+    letter-spacing: 0.06em;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--muted);
+  }
+
+  /* ── GOLDEN RULE BANNER ── */
+  .rule-banner {
+    margin-top: 36px;
+    width: min(640px, 92vw);
+    border-radius: 12px;
+    padding: 20px 24px;
+    border: 1px solid rgba(255,77,109,0.25);
+    background: rgba(255,77,109,0.05);
+    animation: fadeUp 0.8s ease 0.8s both;
+  }
+
+  .rule-banner .rule-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    color: var(--rule-color);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .rule-banner p {
+    font-size: 13px;
+    color: rgba(240,236,228,0.75);
+    line-height: 1.7;
+  }
+
+  .rule-banner strong { color: var(--text); font-weight: 600; }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeDown { from { opacity:0; transform:translateY(-16px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes fadeUp   { from { opacity:0; transform:translateY(16px);  } to { opacity:1; transform:translateY(0); } }
+  @keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
+
+  @keyframes pulse-ring {
+    0%, 100% { box-shadow: 0 0 24px rgba(232,197,71,0.2), 0 0 60px rgba(232,197,71,0.06), inset 0 0 20px rgba(0,0,0,0.2); }
+    50%       { box-shadow: 0 0 36px rgba(232,197,71,0.35), 0 0 80px rgba(232,197,71,0.1), inset 0 0 20px rgba(0,0,0,0.2); }
+  }
+  .ring-1 { animation: pulse-ring 3.5s ease-in-out infinite; }
+
+  /* responsive */
+  @media (max-width: 480px) {
+    .layers { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="label">Robert C. Martin · 2012</div>
+  <h1>Clean Architecture</h1>
+  <p>A layered system where source code dependencies point only inward — toward higher-level policy.</p>
+</header>
+
+<!-- CONCENTRIC RINGS -->
+<div class="rings-wrapper">
+
+  <!-- Ring 4 — Infrastructure (outermost) -->
+  <div class="ring ring-4">
+    <span class="satellite sat-top">Databases</span>
+    <span class="satellite sat-bottom">External APIs</span>
+    <span class="satellite sat-left" style="writing-mode:vertical-rl;transform:translateY(-50%) rotate(180deg)">Frameworks</span>
+    <span class="satellite sat-right" style="writing-mode:vertical-rl;transform:translateY(-50%)">UI / Web</span>
+  </div>
+
+  <!-- Ring 3 — Interface Adapters -->
+  <div class="ring ring-3">
+    <span class="satellite sat-top">Controllers</span>
+    <span class="satellite sat-bottom">Presenters</span>
+    <span class="satellite sat-left" style="writing-mode:vertical-rl;transform:translateY(-50%) rotate(180deg)">Gateways</span>
+    <span class="satellite sat-right" style="writing-mode:vertical-rl;transform:translateY(-50%)">Repos</span>
+  </div>
+
+  <!-- Ring 2 — Use Cases -->
+  <div class="ring ring-2">
+    <div class="ring-label">
+      <span class="name" style="color:var(--usecases);font-size:clamp(8px,1.8vw,13px);">Use Cases</span>
+      <span class="sub">Application Business Rules</span>
+    </div>
+  </div>
+
+  <!-- Ring 1 — Entities (innermost) -->
+  <div class="ring ring-1">
+    <div class="ring-label">
+      <span class="name">Entities</span>
+      <span class="sub">Enterprise Rules</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- Dependency arrow -->
+<div class="arrow-wrapper">
+  <div class="arrow-rule">
+    <svg width="80" height="16" viewBox="0 0 80 16">
+      <defs>
+        <marker id="ah" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#ff4d6d"/>
+        </marker>
+      </defs>
+      <!-- outer label -->
+      <text x="0" y="11" font-size="8" fill="#7c6f9f" font-family="monospace">INFRA</text>
+      <line x1="32" y1="8" x2="64" y2="8" stroke="#ff4d6d" stroke-width="1.5" marker-end="url(#ah)" stroke-dasharray="4 3"/>
+      <text x="67" y="11" font-size="8" fill="#e8c547" font-family="monospace">CORE</text>
+    </svg>
+    <span>Dependencies point inward only</span>
+  </div>
+</div>
+
+<!-- Layer Cards -->
+<div class="layers">
+
+  <div class="layer-card">
+    <h3><span class="dot" style="background:var(--entities)"></span>Entities</h3>
+    <p>Core business objects and rules. Pure logic — no framework, no database, no UI. The most stable layer.</p>
+    <div class="examples">
+      <span class="tag">User</span>
+      <span class="tag">Order</span>
+      <span class="tag">Transaction</span>
+      <span class="tag">BudgetRule</span>
+    </div>
+  </div>
+
+  <div class="layer-card">
+    <h3><span class="dot" style="background:var(--usecases)"></span>Use Cases</h3>
+    <p>Application-specific business rules. Orchestrates the flow of data to/from entities. Independent of UI and DB.</p>
+    <div class="examples">
+      <span class="tag">AddExpense</span>
+      <span class="tag">GetReport</span>
+      <span class="tag">SetBudget</span>
+    </div>
+  </div>
+
+  <div class="layer-card">
+    <h3><span class="dot" style="background:var(--adapters)"></span>Interface Adapters</h3>
+    <p>Converts data between use cases and the external world. Controllers receive input; presenters format output.</p>
+    <div class="examples">
+      <span class="tag">Controller</span>
+      <span class="tag">Presenter</span>
+      <span class="tag">Repository</span>
+      <span class="tag">DTO</span>
+    </div>
+  </div>
+
+  <div class="layer-card">
+    <h3><span class="dot" style="background:var(--infra)"></span>Infrastructure</h3>
+    <p>Frameworks, databases, UI, external services. Details that are easy to swap. Should know nothing of inner layers.</p>
+    <div class="examples">
+      <span class="tag">React</span>
+      <span class="tag">PostgreSQL</span>
+      <span class="tag">Express</span>
+      <span class="tag">REST API</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- Golden Rule -->
+<div class="rule-banner">
+  <div class="rule-title">⬡ The Dependency Rule</div>
+  <p>
+    <strong>Source code dependencies must point only inward.</strong> Nothing in an inner circle can know anything about something in an outer circle. The name of a framework, a database, or a UI component must not be mentioned by the code in the inner rings. <strong>Entities know nothing. Use cases know only entities. Adapters know use cases. Infrastructure knows everything — but it's the detail that changes.</strong>
+  </p>
+</div>
+
+</body>
+</html>
